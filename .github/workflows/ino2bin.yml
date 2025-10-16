@@ -1,0 +1,243 @@
+name: Convert INO to BIN Firmware
+
+on:
+  push:
+    paths:
+      - '**.ino'
+  pull_request:
+    paths:
+      - '**.ino'
+  workflow_dispatch:
+    inputs:
+      ino_file:
+        description: 'Path to .ino file'
+        required: true
+        default: 'src/main.ino'
+      target_chip:
+        description: 'Target ESP chip'
+        required: true
+        default: 'esp32'
+        type: choice
+        options:
+        - esp32
+        - esp32s2
+        - esp32s3
+        - esp32c3
+        - esp32c6
+
+env:
+  ESP_IDF_VERSION: "v5.1.2"
+  ARDUINO_ESP32_VERSION: "2.0.14"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [esp32, esp32s2, esp32s3, esp32c3]
+        # include:
+        #   - target: esp32
+        #   - target: esp32s2
+        #   - target: esp32s3
+        #   - target: esp32c3
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git wget flex bison gperf python3 python3-pip python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+
+    - name: Setup ESP-IDF
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: ${{ env.ESP_IDF_VERSION }}
+        target: ${{ matrix.target }}
+        use_cache: true
+
+    - name: Create project structure
+      run: |
+        mkdir -p firmware_build/main
+        mkdir -p firmware_build/components
+
+    - name: Clone Arduino as component
+      run: |
+        cd firmware_build/components
+        git clone https://github.com/espressif/arduino-esp32.git arduino
+        cd arduino
+        git checkout ${{ env.ARDUINO_ESP32_VERSION }}
+        git submodule update --init --recursive
+
+    - name: Find and process INO files
+      id: find_ino
+      run: |
+        # Use input if provided, otherwise find all .ino files
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          INO_FILE="${{ github.event.inputs.ino_file }}"
+          echo "Using specified INO file: $INO_FILE"
+          if [ ! -f "$INO_FILE" ]; then
+            echo "Error: INO file $INO_FILE not found"
+            exit 1
+          fi
+          echo "ino_files=$INO_FILE" >> $GITHUB_OUTPUT
+        else
+          # Find all .ino files
+          INO_FILES=$(find . -name "*.ino" -not -path "./firmware_build/*" -not -path "./.pio/*")
+          if [ -z "$INO_FILES" ]; then
+            echo "No .ino files found"
+            exit 1
+          fi
+          echo "Found INO files:"
+          echo "$INO_FILES"
+          echo "ino_files=$INO_FILES" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build firmware for each INO file
+      id: build_firmware
+      run: |
+        IFS=$'\n'
+        for ino_file in ${{ steps.find_ino.outputs.ino_files }}; do
+          echo "Processing: $ino_file"
+          
+          # Create clean build directory for this INO file
+          INO_NAME=$(basename "$ino_file" .ino)
+          BUILD_DIR="build_${INO_NAME}_${{ matrix.target }}"
+          mkdir -p "$BUILD_DIR"
+          
+          # Copy project structure
+          cp -r firmware_build/* "$BUILD_DIR/"
+          
+          # Create CMakeLists.txt files
+          cat > "$BUILD_DIR/CMakeLists.txt" << 'EOF'
+cmake_minimum_required(VERSION 3.16)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(ino_to_bin_converter)
+EOF
+
+          cat > "$BUILD_DIR/main/CMakeLists.txt" << 'EOF'
+idf_component_register(SRCS "main.ino"
+                    INCLUDE_DIRS "."
+                    REQUIRES arduino)
+EOF
+
+          # Convert INO to ESP-IDF compatible format
+          python3 << EOF
+import os
+import re
+
+ino_file = "$ino_file"
+output_file = "$BUILD_DIR/main/main.ino"
+
+# Read the original INO file
+with open(ino_file, 'r') as f:
+    content = f.read()
+
+# Check if it already has the required ESP-IDF structure
+if 'app_main' not in content:
+    # Add necessary includes and app_main function
+    new_content = '''#include <Arduino.h>
+
+'''
+    new_content += content
+    
+    # Add app_main if not present
+    if 'void setup()' in content and 'void loop()' in content:
+        new_content += '''
+
+// ESP-IDF entry point
+extern "C" void app_main() {
+    initArduino();
+    setup();
+    while(true) {
+        loop();
+    }
+}
+'''
+else:
+    new_content = content
+
+# Ensure Arduino.h is included
+if '#include <Arduino.h>' not in new_content:
+    new_content = '#include <Arduino.h>\n' + new_content
+
+# Write the converted file
+with open(output_file, 'w') as f:
+    f.write(new_content)
+
+print(f"Converted {ino_file} to ESP-IDF format")
+EOF
+
+          # Build the firmware
+          cd "$BUILD_DIR"
+          source $IDF_PATH/export.sh
+          idf.py set-target ${{ matrix.target }}
+          idf.py build
+          cd ..
+          
+          echo "Built firmware for $ino_file on ${{ matrix.target }}"
+        done
+
+    - name: Collect firmware artifacts
+      run: |
+        mkdir -p firmware_artifacts
+        IFS=$'\n'
+        for ino_file in ${{ steps.find_ino.outputs.ino_files }}; do
+          INO_NAME=$(basename "$ino_file" .ino)
+          BUILD_DIR="build_${INO_NAME}_${{ matrix.target }}"
+          
+          if [ -d "$BUILD_DIR/build" ]; then
+            # Copy all binary files
+            mkdir -p "firmware_artifacts/${INO_NAME}/${{ matrix.target }}"
+            cp "$BUILD_DIR/build/bootloader/bootloader.bin" "firmware_artifacts/${INO_NAME}/${{ matrix.target }}/" 2>/dev/null || true
+            cp "$BUILD_DIR/build/partition_table/partition-table.bin" "firmware_artifacts/${INO_NAME}/${{ matrix.target }}/" 2>/dev/null || true
+            cp "$BUILD_DIR/build/*.bin" "firmware_artifacts/${INO_NAME}/${{ matrix.target }}/" 2>/dev/null || true
+            
+            # Create flash script
+            cat > "firmware_artifacts/${INO_NAME}/${{ matrix.target }}/flash.sh" << EOF
+#!/bin/bash
+esptool.py --chip ${{ matrix.target }} --port /dev/ttyUSB0 --baud 460800 write_flash \\
+  0x1000 bootloader.bin \\
+  0x8000 partition-table.bin \\
+  0x10000 ino_to_bin_converter.bin
+EOF
+            chmod +x "firmware_artifacts/${INO_NAME}/${{ matrix.target }}/flash.sh"
+          fi
+        done
+        
+        # Create build summary
+        echo "# Firmware Build Summary" > firmware_artifacts/README.md
+        echo "Generated: $(date)" >> firmware_artifacts/README.md
+        echo "" >> firmware_artifacts/README.md
+        echo "## Built Firmwares:" >> firmware_artifacts/README.md
+        for dir in firmware_artifacts/*; do
+          if [ -d "$dir" ]; then
+            echo "- $(basename $dir)" >> firmware_artifacts/README.md
+            for target_dir in $dir/*; do
+              if [ -d "$target_dir" ]; then
+                echo "  - $(basename $target_dir)" >> firmware_artifacts/README.md
+              fi
+            done
+          fi
+        done
+
+    - name: Upload firmware artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-binaries-${{ matrix.target }}
+        path: firmware_artifacts/
+        retention-days: 30
+
+    - name: Create release on tag
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: firmware_artifacts/**/*.bin
