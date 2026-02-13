@@ -50,6 +50,7 @@ jobs:
     - name: Compile .ino file
       run: |
         cd github-server-esp-idf
+        mkdir -p main
         mv esp32.ino main/
         cd main
 
