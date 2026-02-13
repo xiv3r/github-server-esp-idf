@@ -1,0 +1,74 @@
+name: ESP32 Arduino CLI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Clone repository
+      run: |
+        git clone https://github.com/xiv3r/github-server-esp-idf
+        mkdir -p xiver
+        mv github-server-esp-idf/* xiver/
+    
+    - name: Install Arduino CLI
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+        arduino-cli version
+    
+    - name: Configure Arduino CLI
+      run: |
+        arduino-cli config init
+        # Add ESP32 board manager URL
+        arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+        arduino-cli core update-index
+    
+    - name: Install ESP32 core
+      run: |
+        arduino-cli core search esp32
+        arduino-cli core install esp32:esp32
+        arduino-cli core list
+    
+    - name: Install all required libraries
+      run: |
+        arduino-cli lib update-index
+        
+        # Communication & Data
+        arduino-cli lib install "ArduinoJson"
+        arduino-cli lib install "WiFiManager"
+        
+        arduino-cli lib list
+        
+    - name: Verify ESP32 core installation
+      run: |
+        echo "Checking installed cores:"
+        arduino-cli core list
+        echo "Checking available boards:"
+        arduino-cli board listall esp32
+        
+    - name: Compile .ino file
+      run: |
+        cd xiver
+        # Create proper sketch folder structure
+        mkdir -p wifi
+        mv wifi.ino wifi/
+        cd wifi
+        # Common ESP32 FQBN options:
+        # - esp32:esp32:esp32 (generic ESP32)
+        # - esp32:esp32:nodemcu-32s
+        # - esp32:esp32:esp32dev
+        # - esp32:esp32:esp32-s2
+        # - esp32:esp32:esp32-c3
+        # - esp32:esp32:esp32-s3
+        arduino-cli compile --fqbn esp32:esp32:esp32dev \
+          --output-dir ../output \
+          ./
+    
+    - name: Upload compiled binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32-firmware
+        path: xiver/output/*.bin
