@@ -46,7 +46,6 @@ jobs:
         arduino-cli lib install "WiFiManager"
         
         arduino-cli lib list
-        arduino-cli lib install --all
         
     - name: Verify ESP8266 core installation
       run: |
