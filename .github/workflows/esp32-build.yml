@@ -12,7 +12,8 @@ jobs:
       run: |
         git clone https://github.com/xiv3r/github-server-esp-idf
         mkdir -p main
-        mv github-server-esp-idf/esp32.ino main/
+        mkdir -p main/main
+        mv github-server-esp-idf/esp32.ino main/main.ino
         
     - name: Install Arduino CLI
       run: |
@@ -52,11 +53,6 @@ jobs:
     - name: Compile .ino file
       run: |
         cd main
-        # Create proper sketch folder structure
-        mkdir -p main
-        mv esp32.ino main/
-        cd main
-        
         # Common ESP32 FQBN options:
         # - esp32:esp32:esp32 (generic ESP32)
         # - esp32:esp32:nodemcu-32s
