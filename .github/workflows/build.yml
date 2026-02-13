@@ -44,24 +44,11 @@ jobs:
         # Communication & Data
         arduino-cli lib install "ArduinoJson@6.21.5"
         arduino-cli lib install "PubSubClient@2.8"
-        # arduino-cli lib install "WebSockets@2.5.0"
         arduino-cli lib install "WiFiManager@0.16.0"
-        arduino-cli lib install "ESPAsyncWebServer@3.0.0"
         arduino-cli lib install "ESPAsyncTCP@1.2.2"
         arduino-cli lib install "AsyncTCP@1.1.1"
         
-        # Sensors & Actuators
-        arduino-cli lib install "DHT sensor library@1.4.4"
-        arduino-cli lib install "Adafruit Unified Sensor@1.1.9"
-        arduino-cli lib install "BME280@3.0.3"
-        arduino-cli lib install "DS3231@1.1.2"
-        arduino-cli lib install "OneWire@2.3.7"
-        arduino-cli lib install "DallasTemperature@3.11.0"
         
-        # Displays
-        arduino-cli lib install "Adafruit GFX Library@1.11.9"
-        arduino-cli lib install "Adafruit SSD1306@2.5.9"
-        arduino-cli lib install "U8g2@2.35.15"
         
         # Storage
         arduino-cli lib install "LittleFS@2.0.0"
