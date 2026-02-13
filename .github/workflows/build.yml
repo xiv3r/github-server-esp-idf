@@ -42,33 +42,32 @@ jobs:
         arduino-cli lib update-index
         
         # Communication & Data
-        arduino-cli lib install "ArduinoJson@6.21.5"
-        arduino-cli lib install "PubSubClient@2.8"
-        arduino-cli lib install "WiFiManager@0.16.0"
-        arduino-cli lib install "ESPAsyncTCP@1.2.2"
-        arduino-cli lib install "AsyncTCP@1.1.1"
-        
+        arduino-cli lib install "ArduinoJson"
+        arduino-cli lib install "PubSubClient"
+        arduino-cli lib install "WiFiManager"
+        arduino-cli lib install "ESPAsyncTCP"
+        arduino-cli lib install "AsyncTCP"
         
         
         # Storage
-        arduino-cli lib install "LittleFS@2.0.0"
-        arduino-cli lib install "SD@1.2.4"
+        arduino-cli lib install "LittleFS"
+        
         
         # MQTT & Networking
-        arduino-cli lib install "MQTT@2.5.2"
-        arduino-cli lib install "ESP8266Ping@1.1.0"
-        arduino-cli lib install "ESP8266HTTPClient@1.2"
-        arduino-cli lib install "ESP8266WiFi@1.0"
-        arduino-cli lib install "ESP8266WebServer@1.0"
+        arduino-cli lib install "MQTT"
+        arduino-cli lib install "ESP8266Ping"
+        arduino-cli lib install "ESP8266HTTPClient"
+        arduino-cli lib install "ESP8266WiFi"
+        arduino-cli lib install "ESP8266WebServer"
         
         # Time
-        arduino-cli lib install "NTPClient@3.2.1"
-        arduino-cli lib install "Time@1.6.1"
-        arduino-cli lib install "Timezone@1.2.4"
+        arduino-cli lib install "NTPClient"
+        arduino-cli lib install "Time"
+        arduino-cli lib install "Timezone"
         
         # Utilities
-        arduino-cli lib install "EEPROM@2.0"
-        arduino-cli lib install "CRC32@2.0.0"
+        arduino-cli lib install "EEPROM"
+        arduino-cli lib install "CRC32"
         
         arduino-cli lib list
         
