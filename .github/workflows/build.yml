@@ -44,14 +44,11 @@ jobs:
         # Communication & Data
         arduino-cli lib install "ArduinoJson"
         arduino-cli lib install "PubSubClient"
+        arduino-cli lib install "ESPAsyncWebServer"
+        arduino-cli lib install "WebSockets"
         arduino-cli lib install "WiFiManager"
         arduino-cli lib install "ESPAsyncTCP"
         arduino-cli lib install "AsyncTCP"
-        
-        
-        # Storage
-        arduino-cli lib install "LittleFS"
-        
         
         # MQTT & Networking
         arduino-cli lib install "MQTT"
@@ -67,7 +64,6 @@ jobs:
         
         # Utilities
         arduino-cli lib install "EEPROM"
-        arduino-cli lib install "CRC32"
         
         arduino-cli lib list
         
