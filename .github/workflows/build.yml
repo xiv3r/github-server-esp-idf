@@ -1,97 +1,110 @@
-name: Build Firmware
+name: ESP8266 wifi arduino cli 
 
 on:
-  workflow_dispatch:
-  release:
-    types: [published]  
-    
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
 jobs:
-  download-and-release:
+  build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Download files
+    - name: Clone repository
       run: |
-        sudo apt update
-        sudo apt install git wget flex bison gperf python3 python3-pip python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0 -y
-
-    - name: Clone the Repository
+        git clone https://github.com/xiv3r/github-server-esp-idf
+        mkdir -p xiver
+        mv github-server-esp-idf/* xiver/
+    
+    - name: Install Arduino CLI
       run: |
-        mkdir -p ~/esp
-        cd ~/esp
-        git clone -b v5.5.1 --recursive https://github.com/espressif/esp-idf.git
-        cd ~/esp/esp-idf
-        ./install.sh esp32
-        . $HOME/esp/esp-idf/export.sh
-        alias get_idf='. $HOME/esp/esp-idf/export.sh'
-        sudo usermod -a -G dialout $USER
+        curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+        arduino-cli version
+    
+    - name: Configure Arduino CLI
+      run: |
+        arduino-cli config init
+        # Add ESP8266 and ESP32 board manager URLs
+        arduino-cli config add board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
+        arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+        arduino-cli core update-index
+    
+    - name: Install ESP8266 core
+      run: |
+        arduino-cli core search esp8266
+        arduino-cli core install esp8266:esp8266@3.1.2
+        arduino-cli core list
+    
+    - name: Install all required libraries
+      run: |
+        arduino-cli lib update-index
         
-        - name: Building
-          run: |
-          cd ~/esp
-          cp -r $IDF_PATH/examples/get-started/hello_world .
-          cd hello_world
-          idf.py build
-       
-    - name: Determine release tag
-      id: get_tag
+        # Communication & Data
+        arduino-cli lib install "ArduinoJson@6.21.5"
+        arduino-cli lib install "PubSubClient@2.8"
+        arduino-cli lib install "WebSockets@2.5.0"
+        arduino-cli lib install "WiFiManager@0.16.0"
+        arduino-cli lib install "ESPAsyncWebServer@3.0.0"
+        arduino-cli lib install "ESPAsyncTCP@1.2.2"
+        arduino-cli lib install "AsyncTCP@1.1.1"
+        
+        # Sensors & Actuators
+        arduino-cli lib install "DHT sensor library@1.4.4"
+        arduino-cli lib install "Adafruit Unified Sensor@1.1.9"
+        arduino-cli lib install "BME280@3.0.3"
+        arduino-cli lib install "DS3231@1.1.2"
+        arduino-cli lib install "OneWire@2.3.7"
+        arduino-cli lib install "DallasTemperature@3.11.0"
+        
+        # Displays
+        arduino-cli lib install "Adafruit GFX Library@1.11.9"
+        arduino-cli lib install "Adafruit SSD1306@2.5.9"
+        arduino-cli lib install "U8g2@2.35.15"
+        
+        # Storage
+        arduino-cli lib install "LittleFS@2.0.0"
+        arduino-cli lib install "SD@1.2.4"
+        
+        # MQTT & Networking
+        arduino-cli lib install "MQTT@2.5.2"
+        arduino-cli lib install "ESP8266Ping@1.1.0"
+        arduino-cli lib install "ESP8266HTTPClient@1.2"
+        arduino-cli lib install "ESP8266WiFi@1.0"
+        arduino-cli lib install "ESP8266WebServer@1.0"
+        
+        # Time
+        arduino-cli lib install "NTPClient@3.2.1"
+        arduino-cli lib install "Time@1.6.1"
+        arduino-cli lib install "Timezone@1.2.4"
+        
+        # Utilities
+        arduino-cli lib install "EEPROM@2.0"
+        arduino-cli lib install "CRC32@2.0.0"
+        
+        arduino-cli lib list
+        
+    - name: Verify ESP8266 core installation
       run: |
-        if [ "${{ github.event_name }}" == "release" ]; then
-          TAG_NAME="${{ github.event.release.tag_name }}"
-        else
-          TAG_NAME="firmware"
-        fi
-        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-
-    - name: Delete existing release assets
-      uses: actions/github-script@v7
+        echo "Checking installed cores:"
+        arduino-cli core list
+        echo "Checking available boards:"
+        arduino-cli board listall esp8266
+        
+    - name: Compile .ino file
+      run: |
+        cd xiver
+        # Create proper sketch folder structure
+        mkdir -p wifi
+        mv wifi.ino wifi/
+        cd wifi
+        arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 \
+          --output-dir ../output \
+          ./
+    
+    - name: Upload compiled binaries
+      uses: actions/upload-artifact@v4
       with:
-        script: |
-          const { data: releases } = await github.rest.repos.listReleases({
-            owner: context.repo.owner,
-            repo: context.repo.repo
-          });
-          
-          const targetRelease = releases.find(release => release.tag_name === '${{ steps.get_tag.outputs.tag_name }}');
-          
-          if (targetRelease) {
-            console.log(`Found release with tag: ${{ steps.get_tag.outputs.tag_name }}`);
-            console.log(`Release ID: ${targetRelease.id}`);
-            
-            const { data: assets } = await github.rest.repos.listReleaseAssets({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: targetRelease.id
-            });
-            
-            console.log(`Found ${assets.length} assets to delete`);
-            
-            for (const asset of assets) {
-              console.log(`Deleting asset: ${asset.name} (ID: ${asset.id})`);
-              await github.rest.repos.deleteReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                asset_id: asset.id
-              });
-            }
-            
-            console.log('All existing assets deleted');
-          } else {
-            console.log(`No release found with tag: ${{ steps.get_tag.outputs.tag_name }}`);
-          }
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload files to existing release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.get_tag.outputs.tag_name }}
-        files: |
-          downloads/esp-idf/*.bin
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: esp8266-firmware
+        path: xiver/output/*.bin
