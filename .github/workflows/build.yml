@@ -52,7 +52,6 @@ jobs:
         
         # MQTT & Networking
         arduino-cli lib install "MQTT"
-        arduino-cli lib install "ESP8266HTTPClient"
         arduino-cli lib install "ESP8266WiFi"
         arduino-cli lib install "ESP8266WebServer"
         
