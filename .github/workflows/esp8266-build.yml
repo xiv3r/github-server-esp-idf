@@ -52,7 +52,7 @@ jobs:
       run: |
         cd github-server-esp-idf
         # Create proper sketch folder structure
-        mkdir -p maim
+        mkdir -p main
         mv esp8266.ino main/main.ino
         cd main
         
@@ -66,7 +66,7 @@ jobs:
         if [ "${{ github.event_name }}" == "release" ]; then
           TAG_NAME="${{ github.event.release.tag_name }}"
         else
-          TAG_NAME="esp8266-firmware"
+          TAG_NAME="ESP8266-firmware"
         fi
         echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
