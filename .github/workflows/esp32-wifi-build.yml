@@ -11,7 +11,9 @@ jobs:
     - name: Clone repository
       run: |
         git clone https://github.com/xiv3r/github-server-esp-idf
-    
+        mkdir -p main
+        mv github-server-esp-idf/esp32.ino main/
+        
     - name: Install Arduino CLI
       run: |
         curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
@@ -49,7 +51,7 @@ jobs:
         
     - name: Compile .ino file
       run: |
-        cd github-server-esp-idf
+        cd main
         # Create proper sketch folder structure
         mkdir -p main
         mv esp32.ino main/
@@ -121,6 +123,6 @@ jobs:
       with:
         tag_name: ${{ steps.get_tag.outputs.tag_name }}
         files: |
-          github-server-esp-idf/output/*.bin
+          main/output/*.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
