@@ -63,7 +63,7 @@ jobs:
         # - esp32:esp32:esp32-s2
         # - esp32:esp32:esp32-c3
         # - esp32:esp32:esp32-s3
-        arduino-cli compile --fqbn esp32:esp32:esp32dev \
+        arduino-cli compile --fqbn esp32:esp32:esp32 \
           --output-dir ../output \
           ./
     - name: Determine release tag
