@@ -51,7 +51,7 @@ jobs:
       run: |
         cd github-server-esp-idf
         mkdir -p main
-        mv esp32.ino main/
+        mv esp32.ino main/main.ino
         cd main
 
         # Common ESP32 FQBN options:
