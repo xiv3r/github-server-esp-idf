@@ -11,8 +11,7 @@ jobs:
     - name: Clone repository
       run: |
         git clone https://github.com/xiv3r/github-server-esp-idf
-        mkdir -p xiver
-        mv github-server-esp-idf/* xiver/
+        cd github-server-esp-idf
     
     - name: Install Arduino CLI
       run: |
@@ -51,11 +50,12 @@ jobs:
         
     - name: Compile .ino file
       run: |
-        cd xiver
+        cd github-server-esp-idf
         # Create proper sketch folder structure
-        mkdir -p wifi
-        mv wifi.ino wifi/
-        cd wifi
+        mkdir -p main
+        mv esp32.ino main/
+        cd main
+        
         # Common ESP32 FQBN options:
         # - esp32:esp32:esp32 (generic ESP32)
         # - esp32:esp32:nodemcu-32s
@@ -63,9 +63,11 @@ jobs:
         # - esp32:esp32:esp32-s2
         # - esp32:esp32:esp32-c3
         # - esp32:esp32:esp32-s3
+        
         arduino-cli compile --fqbn esp32:esp32:esp32 \
           --output-dir ../output \
           ./
+          
     - name: Determine release tag
       id: get_tag
       run: |
@@ -120,6 +122,6 @@ jobs:
       with:
         tag_name: ${{ steps.get_tag.outputs.tag_name }}
         files: |
-          xiver/output/*.bin
+          github-server-esp-idf/output/*.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
