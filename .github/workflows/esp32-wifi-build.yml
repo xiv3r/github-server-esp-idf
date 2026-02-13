@@ -11,7 +11,6 @@ jobs:
     - name: Clone repository
       run: |
         git clone https://github.com/xiv3r/github-server-esp-idf
-        cd github-server-esp-idf
     
     - name: Install Arduino CLI
       run: |
