@@ -11,8 +11,6 @@ jobs:
     - name: Clone repository
       run: |
         git clone https://github.com/xiv3r/github-server-esp-idf
-        mkdir -p xiver
-        mv github-server-esp-idf/esp32.ino xiver/
         
     - name: Install Arduino CLI
       run: |
@@ -51,10 +49,8 @@ jobs:
         
     - name: Compile .ino file
       run: |
-        cd xiver
-        # Create proper sketch folder structure
-        mkdir -p main
-        mv *.ino main/
+        cd github-server-esp-idf
+        mv esp32.ino main/
         cd main
 
         # Common ESP32 FQBN options:
@@ -123,6 +119,6 @@ jobs:
       with:
         tag_name: ${{ steps.get_tag.outputs.tag_name }}
         files: |
-          xiver/output/*.bin
+          github-server-esp-idf/output/*.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
